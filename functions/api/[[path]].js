@@ -36,9 +36,6 @@ const GITHUB_REPO_DEFAULT = 'RexnhcKnd/BlogDocuments';
 const MAX_MB_DEFAULT = 100;
 const KV_MAX_BYTES = 25 * 1024 * 1024;
 const KV_MAX_MB = 25;
-// GitHub 模式先把请求体完整读进内存再上传（流式转发出现过"上传成功但文件被截断"）。
-// isolate 内存上限 128MB，所以缓冲上限压在 64MB；要传更大的就用 R2。
-const GH_MAX_MB = 64;
 const DANGEROUS_EXT = new Set([
   'html', 'htm', 'xhtml', 'shtml', 'svg', 'xml', 'js', 'mjs', 'cjs', 'css',
   'exe', 'msi', 'bat', 'cmd', 'com', 'scr', 'ps1', 'psm1', 'sh', 'bash',
@@ -276,9 +273,10 @@ function ghStore(env) {
     //           改成先 await request.arrayBuffer() 再传——代价是 100MB 会吃掉 isolate 内存。
     const r = await fetch(upBase + '/releases/' + rel.id + '/assets?name=' + encodeURIComponent(assetName(key)) + label, {
       method: 'POST',
-      // 不手工设 Content-Length：body 是 ArrayBuffer/字符串时运行时会算出准确长度，
-      // 手工设长度 + 流式 body 会打架，正是之前文件被截断的根源。
-      headers: Object.assign({}, H, { 'Content-Type': meta.type || 'application/octet-stream' }),
+      headers: Object.assign({}, H, {
+        'Content-Type': meta.type || 'application/octet-stream',
+        'Content-Length': String(meta.size || 0)
+      }),
       body
     });
     if (!r.ok) {
@@ -293,9 +291,9 @@ function ghStore(env) {
   return {
     kind: 'gh',
     async put(key, request, meta) {
-      // 先完整读进内存再上传：长度确定、内容完整，不会再出现"能下载但打不开"的坏文件
-      const buf = await request.arrayBuffer();
-      const a = await upload(key, buf, { type: meta.type, size: buf.byteLength, label: meta.name });
+      // 流式转发（不落内存，所以单文件能到 CF 的 100MB 上限）。
+      // 完整性由上层 upload() 统一核对：实际存下的字节数必须等于声明长度。
+      const a = await upload(key, request.body, { type: meta.type, size: meta.size, label: meta.name });
       return { size: a.size || 0 };
     },
     async get(key) {
@@ -466,7 +464,6 @@ const STORE_LABEL = { r2: 'R2', gh: 'GitHub Releases', kv: 'KV' };
 function maxMBFor(env, store) {
   const m = num(env.MAX_MB, MAX_MB_DEFAULT);
   if (store.kind === 'kv' && m > KV_MAX_MB) return KV_MAX_MB;
-  if (store.kind === 'gh' && m > GH_MAX_MB) return GH_MAX_MB;   // 内存缓冲上限
   return m;
 }
 function extOf(name) { const i = name.lastIndexOf('.'); return i > 0 ? name.slice(i + 1).toLowerCase() : ''; }
