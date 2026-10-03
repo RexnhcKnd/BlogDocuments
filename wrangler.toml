@@ -1,0 +1,18 @@
+# ============================================================
+#  在 GitHub 仓库 RexnhcKnd/BlogDocuments 的「根目录」新建这个文件，
+#  文件名就叫：wrangler.toml   （内容就是下面这些，标题注释可留可删）
+#
+#  做法：GitHub 仓库 → Add file → Create new file → 文件名填 wrangler.toml
+#        → 粘贴下面内容 → Commit changes
+#  然后回到 Cloudflare 那个「Set up your application」页面，直接点 Deploy 就会成功。
+# ============================================================
+
+name = "blogdocuments"
+compatibility_date = "2026-01-01"
+
+# 把仓库根目录当作静态站点发布：index.html 和 files/ 里的 16 个文件都会被服务
+[assets]
+directory = "."
+
+# 可选：单页应用式的回退（本站不需要，保持注释）
+# not_found_handling = "single-page-application"
