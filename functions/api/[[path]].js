@@ -36,6 +36,9 @@ const GITHUB_REPO_DEFAULT = 'RexnhcKnd/BlogDocuments';
 const MAX_MB_DEFAULT = 100;
 const KV_MAX_BYTES = 25 * 1024 * 1024;
 const KV_MAX_MB = 25;
+// GitHub 模式先把请求体完整读进内存再上传（流式转发出现过"上传成功但文件被截断"）。
+// isolate 内存上限 128MB，所以缓冲上限压在 64MB；要传更大的就用 R2。
+const GH_MAX_MB = 64;
 const DANGEROUS_EXT = new Set([
   'html', 'htm', 'xhtml', 'shtml', 'svg', 'xml', 'js', 'mjs', 'cjs', 'css',
   'exe', 'msi', 'bat', 'cmd', 'com', 'scr', 'ps1', 'psm1', 'sh', 'bash',
@@ -273,10 +276,9 @@ function ghStore(env) {
     //           改成先 await request.arrayBuffer() 再传——代价是 100MB 会吃掉 isolate 内存。
     const r = await fetch(upBase + '/releases/' + rel.id + '/assets?name=' + encodeURIComponent(assetName(key)) + label, {
       method: 'POST',
-      headers: Object.assign({}, H, {
-        'Content-Type': meta.type || 'application/octet-stream',
-        'Content-Length': String(meta.size || 0)
-      }),
+      // 不手工设 Content-Length：body 是 ArrayBuffer/字符串时运行时会算出准确长度，
+      // 手工设长度 + 流式 body 会打架，正是之前文件被截断的根源。
+      headers: Object.assign({}, H, { 'Content-Type': meta.type || 'application/octet-stream' }),
       body
     });
     if (!r.ok) {
@@ -291,7 +293,9 @@ function ghStore(env) {
   return {
     kind: 'gh',
     async put(key, request, meta) {
-      const a = await upload(key, request.body, { type: meta.type, size: meta.size, label: meta.name });
+      // 先完整读进内存再上传：长度确定、内容完整，不会再出现"能下载但打不开"的坏文件
+      const buf = await request.arrayBuffer();
+      const a = await upload(key, buf, { type: meta.type, size: buf.byteLength, label: meta.name });
       return { size: a.size || 0 };
     },
     async get(key) {
@@ -410,6 +414,13 @@ async function upload(request, env, store, url) {
     return json({ ok: false, error: '超过 ' + maxMB + 'MB 上限，已拒绝' }, 413);
   }
 
+  // 传输被截断会存出一个"能下载、但打开是坏的"文件（PDF 这类尤其致命）。
+  // 拿实际存下的字节数和客户端声明的 content-length 对一次，不一致就删掉并明确报错。
+  if (declared && res.size !== declared) {
+    await store.del(key);
+    return json({ ok: false, error: '上传不完整：声明 ' + declared + ' 字节，实际只存下 ' + res.size + ' 字节，已自动删除，请重试' }, 502);
+  }
+
   return json({ ok: true, key, name, size: res.size, url: '/api/file/' + key, download: '/api/file/' + key + '?dl=1' });
 }
 
@@ -454,7 +465,9 @@ const STORE_LABEL = { r2: 'R2', gh: 'GitHub Releases', kv: 'KV' };
 // 单文件上限只有一个出处：前端靠 /api/list 拿到的 maxMB 显示提示，所以这里算给两边共用
 function maxMBFor(env, store) {
   const m = num(env.MAX_MB, MAX_MB_DEFAULT);
-  return store.kind === 'kv' && m > KV_MAX_MB ? KV_MAX_MB : m;
+  if (store.kind === 'kv' && m > KV_MAX_MB) return KV_MAX_MB;
+  if (store.kind === 'gh' && m > GH_MAX_MB) return GH_MAX_MB;   // 内存缓冲上限
+  return m;
 }
 function extOf(name) { const i = name.lastIndexOf('.'); return i > 0 ? name.slice(i + 1).toLowerCase() : ''; }
 function safeName(input) {
