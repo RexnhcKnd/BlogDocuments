@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-cn">
 <head>
 <meta charset="utf-8">
@@ -9,285 +9,311 @@
   :root { color-scheme: dark; }
   * { box-sizing: border-box; }
   body {
-    margin: 0; padding: 28px 16px 60px; background: #17181a; color: #c9ccd1;
+    margin: 0; padding: 26px 16px 60px; background: #17181a; color: #c9ccd1;
     font: 14px/1.7 'PingFang SC','Microsoft YaHei','Helvetica Neue',Arial,sans-serif;
   }
-  .wrap { max-width: 900px; margin: 0 auto; }
-  h1 { margin: 0 0 6px; font-size: 26px; color: #e8eaf0; }
+  .wrap { max-width: 940px; margin: 0 auto; }
+  h1 { margin: 0 0 6px; font-size: 25px; color: #e8eaf0; }
   .sub { color: #7d838f; font-size: 13px; margin-bottom: 18px; }
-  .sub code { background: #23262f; padding: 1px 6px; border-radius: 4px; color: #9fd0ff; word-break: break-all; }
-  #q {
-    width: 100%; padding: 10px 14px; margin-bottom: 16px; font-size: 14px;
-    background: #20222a; border: 1px solid #2c2f3a; border-radius: 10px; color: #e8eaf0; outline: none;
+  #drop {
+    border: 2px dashed #3a3f52; border-radius: 14px; padding: 26px 20px; text-align: center;
+    background: #1d1f27; cursor: pointer; transition: .2s; margin-bottom: 8px;
   }
+  #drop:hover, #drop.over { border-color: #5B7BFF; background: #212433; }
+  #drop b { color: #e8eaf0; }
+  #drop .hint { font-size: 12px; color: #7d838f; margin-top: 6px; }
+  .bar { height: 6px; background: #2a2e3a; border-radius: 4px; overflow: hidden; margin: 10px 0; display: none; }
+  .bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg,#5B7BFF,#e0566f); transition: width .15s; }
+  .notice { font-size: 12px; color: #e0a15e; margin: 8px 0; }
+  #q { width: 100%; padding: 10px 14px; margin: 14px 0 12px; font-size: 14px; background: #20222a;
+       border: 1px solid #2c2f3a; border-radius: 10px; color: #e8eaf0; outline: none; }
   #q:focus { border-color: #5B7BFF; }
   table { width: 100%; border-collapse: collapse; background: #20222a; border: 1px solid #2c2f3a; border-radius: 10px; overflow: hidden; }
-  th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #262932; }
+  th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #262932; vertical-align: top; }
   th { font-size: 12px; color: #98a0ad; font-weight: 600; background: #1c1e26; }
   tr:last-child td { border-bottom: 0; }
   tr.hide { display: none; }
   td.name { color: #e8eaf0; word-break: break-all; }
-  td.kind, td.size { color: #98a0ad; font-size: 13px; white-space: nowrap; }
-  .btn {
-    display: inline-block; margin: 0 6px 4px 0; padding: 3px 10px; font-size: 12px;
-    color: #cfd6e4; background: #2a2e3a; border: 1px solid #343846; border-radius: 6px;
-    cursor: pointer; text-decoration: none;
-  }
+  td.name a { color: #e8eaf0; text-decoration: none; }
+  td.name a:hover { color: #8ab4f8; }
+  .badge { display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 4px; margin-left: 6px; vertical-align: 1px; }
+  .badge.repo { background: #2b3a52; color: #9fd0ff; }
+  .badge.r2 { background: #3a2b46; color: #e2b3ff; }
+  td.kind, td.size { color: #98a0ad; font-size: 12px; white-space: nowrap; }
+  .btn { display: inline-block; margin: 0 6px 4px 0; padding: 3px 9px; font-size: 12px; color: #cfd6e4;
+         background: #2a2e3a; border: 1px solid #343846; border-radius: 6px; cursor: pointer; text-decoration: none; }
   .btn:hover { color: #fff; border-color: #5B7BFF; background: #303646; }
-  .empty { padding: 26px; text-align: center; color: #7d838f; }
+  .btn.del:hover { border-color: #e0566f; color: #ffb3c6; }
+  .empty { padding: 22px; text-align: center; color: #7d838f; }
   footer { margin-top: 20px; color: #6f7581; font-size: 12px; line-height: 1.9; }
-  footer code { background: #23262f; padding: 1px 6px; border-radius: 4px; color: #9fd0ff; word-break: break-all; }
-  #toast {
-    position: fixed; left: 50%; bottom: 32px; transform: translate(-50%, 20px);
-    background: #2b3040; color: #fff; padding: 9px 16px; border-radius: 8px; font-size: 13px;
-    opacity: 0; pointer-events: none; transition: .25s; box-shadow: 0 8px 24px rgba(0,0,0,.5);
-  }
+  code { background: #23262f; padding: 1px 6px; border-radius: 4px; color: #9fd0ff; word-break: break-all; }
+  #toast { position: fixed; left: 50%; bottom: 30px; transform: translate(-50%,20px); background: #2b3040; color: #fff;
+           padding: 9px 16px; border-radius: 8px; font-size: 13px; opacity: 0; pointer-events: none; transition: .25s;
+           box-shadow: 0 8px 24px rgba(0,0,0,.5); max-width: 80vw; text-align: center; z-index: 9; }
   #toast.on { opacity: 1; transform: translate(-50%, 0); }
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>RexnhcKnd 的文件站</h1>
-  <div class="sub">
-    共 <b>16</b> 个文件 · 合计 <b>7.09 MB</b> ·
-    直链格式：<code>https://blogdocuments.pages.dev/files/文件名</code>
-  </div>
+  <div class="sub">直接在这个页面里上传 / 下载 · 每个文件都有直链，可外链</div>
 
-  <input id="q" type="search" placeholder="输入文件名筛选…">
+  <div id="drop">
+    <b>把文件拖到这里</b>，或点击选择<br>
+    <span class="hint" id="hint">上传中…</span>
+  </div>
+  <input type="file" id="pick" multiple style="display: none">
+  <div id="pwrow" style="display: none; margin: 10px 0 0">
+    <input id="pw" type="password" placeholder="上传密码" autocomplete="off"
+           style="width: 200px; padding: 8px 10px; border-radius: 8px; border: 1px solid #333b46; background: #171b22; color: #e8eaf0">
+    <label style="margin-left: 10px; font-size: 12px; color: #98a0ad; user-select: none">
+      <input type="checkbox" id="pwremember" checked> 记住
+    </label>
+  </div>
+  <div class="bar" id="bar"><i></i></div>
+  <div class="notice" id="notice"></div>
+
+  <input id="q" type="search" placeholder="筛选文件名…">
 
   <table>
     <thead>
-      <tr><th>文件</th><th>类型</th><th>大小</th><th>操作</th></tr>
+      <tr><th>文件</th><th>类型</th><th>大小</th><th>上传时间</th><th>操作</th></tr>
     </thead>
-    <tbody id="tb">
-    <tr>
-      <td class="name">avatar_200.png</td>
-      <td class="kind">图片</td>
-      <td class="size">89 KB</td>
-      <td class="ops">
-        <a class="btn" href="files/avatar_200.png" target="_blank" rel="noopener">打开</a>
-        <button class="btn copy" data-url="https://blogdocuments.pages.dev/files/avatar_200.png">复制直链</button>
-        <button class="btn copy-html" data-url="https://blogdocuments.pages.dev/files/avatar_200.png" data-name="avatar_200.png">复制引用</button>
-      </td>
-    </tr>
-    <tr>
-      <td class="name">bg_540p.mp4</td>
-      <td class="kind">视频</td>
-      <td class="size">1.28 MB</td>
-      <td class="ops">
-        <a class="btn" href="files/bg_540p.mp4" target="_blank" rel="noopener">打开</a>
-        <button class="btn copy" data-url="https://blogdocuments.pages.dev/files/bg_540p.mp4">复制直链</button>
-        <button class="btn copy-html" data-url="https://blogdocuments.pages.dev/files/bg_540p.mp4" data-name="bg_540p.mp4">复制引用</button>
-      </td>
-    </tr>
-    <tr>
-      <td class="name">bg_720p.mp4</td>
-      <td class="kind">视频</td>
-      <td class="size">2.59 MB</td>
-      <td class="ops">
-        <a class="btn" href="files/bg_720p.mp4" target="_blank" rel="noopener">打开</a>
-        <button class="btn copy" data-url="https://blogdocuments.pages.dev/files/bg_720p.mp4">复制直链</button>
-        <button class="btn copy-html" data-url="https://blogdocuments.pages.dev/files/bg_720p.mp4" data-name="bg_720p.mp4">复制引用</button>
-      </td>
-    </tr>
-    <tr>
-      <td class="name">bg_article_2560.jpg</td>
-      <td class="kind">图片</td>
-      <td class="size">563 KB</td>
-      <td class="ops">
-        <a class="btn" href="files/bg_article_2560.jpg" target="_blank" rel="noopener">打开</a>
-        <button class="btn copy" data-url="https://blogdocuments.pages.dev/files/bg_article_2560.jpg">复制直链</button>
-        <button class="btn copy-html" data-url="https://blogdocuments.pages.dev/files/bg_article_2560.jpg" data-name="bg_article_2560.jpg">复制引用</button>
-      </td>
-    </tr>
-    <tr>
-      <td class="name">bg_extra1.jpg</td>
-      <td class="kind">图片</td>
-      <td class="size">581 KB</td>
-      <td class="ops">
-        <a class="btn" href="files/bg_extra1.jpg" target="_blank" rel="noopener">打开</a>
-        <button class="btn copy" data-url="https://blogdocuments.pages.dev/files/bg_extra1.jpg">复制直链</button>
-        <button class="btn copy-html" data-url="https://blogdocuments.pages.dev/files/bg_extra1.jpg" data-name="bg_extra1.jpg">复制引用</button>
-      </td>
-    </tr>
-    <tr>
-      <td class="name">bg_extra2.jpg</td>
-      <td class="kind">图片</td>
-      <td class="size">586 KB</td>
-      <td class="ops">
-        <a class="btn" href="files/bg_extra2.jpg" target="_blank" rel="noopener">打开</a>
-        <button class="btn copy" data-url="https://blogdocuments.pages.dev/files/bg_extra2.jpg">复制直链</button>
-        <button class="btn copy-html" data-url="https://blogdocuments.pages.dev/files/bg_extra2.jpg" data-name="bg_extra2.jpg">复制引用</button>
-      </td>
-    </tr>
-    <tr>
-      <td class="name">bg_extra3.jpg</td>
-      <td class="kind">图片</td>
-      <td class="size">572 KB</td>
-      <td class="ops">
-        <a class="btn" href="files/bg_extra3.jpg" target="_blank" rel="noopener">打开</a>
-        <button class="btn copy" data-url="https://blogdocuments.pages.dev/files/bg_extra3.jpg">复制直链</button>
-        <button class="btn copy-html" data-url="https://blogdocuments.pages.dev/files/bg_extra3.jpg" data-name="bg_extra3.jpg">复制引用</button>
-      </td>
-    </tr>
-    <tr>
-      <td class="name">bg_static_2560.jpg</td>
-      <td class="kind">图片</td>
-      <td class="size">596 KB</td>
-      <td class="ops">
-        <a class="btn" href="files/bg_static_2560.jpg" target="_blank" rel="noopener">打开</a>
-        <button class="btn copy" data-url="https://blogdocuments.pages.dev/files/bg_static_2560.jpg">复制直链</button>
-        <button class="btn copy-html" data-url="https://blogdocuments.pages.dev/files/bg_static_2560.jpg" data-name="bg_static_2560.jpg">复制引用</button>
-      </td>
-    </tr>
-    <tr>
-      <td class="name">info_bg.jpg</td>
-      <td class="kind">图片</td>
-      <td class="size">100 KB</td>
-      <td class="ops">
-        <a class="btn" href="files/info_bg.jpg" target="_blank" rel="noopener">打开</a>
-        <button class="btn copy" data-url="https://blogdocuments.pages.dev/files/info_bg.jpg">复制直链</button>
-        <button class="btn copy-html" data-url="https://blogdocuments.pages.dev/files/info_bg.jpg" data-name="info_bg.jpg">复制引用</button>
-      </td>
-    </tr>
-    <tr>
-      <td class="name">snowflake.png</td>
-      <td class="kind">图片</td>
-      <td class="size">1 KB</td>
-      <td class="ops">
-        <a class="btn" href="files/snowflake.png" target="_blank" rel="noopener">打开</a>
-        <button class="btn copy" data-url="https://blogdocuments.pages.dev/files/snowflake.png">复制直链</button>
-        <button class="btn copy-html" data-url="https://blogdocuments.pages.dev/files/snowflake.png" data-name="snowflake.png">复制引用</button>
-      </td>
-    </tr>
-    <tr>
-      <td class="name">whale_drag.png</td>
-      <td class="kind">图片</td>
-      <td class="size">43 KB</td>
-      <td class="ops">
-        <a class="btn" href="files/whale_drag.png" target="_blank" rel="noopener">打开</a>
-        <button class="btn copy" data-url="https://blogdocuments.pages.dev/files/whale_drag.png">复制直链</button>
-        <button class="btn copy-html" data-url="https://blogdocuments.pages.dev/files/whale_drag.png" data-name="whale_drag.png">复制引用</button>
-      </td>
-    </tr>
-    <tr>
-      <td class="name">whale_drag.webp</td>
-      <td class="kind">图片</td>
-      <td class="size">24 KB</td>
-      <td class="ops">
-        <a class="btn" href="files/whale_drag.webp" target="_blank" rel="noopener">打开</a>
-        <button class="btn copy" data-url="https://blogdocuments.pages.dev/files/whale_drag.webp">复制直链</button>
-        <button class="btn copy-html" data-url="https://blogdocuments.pages.dev/files/whale_drag.webp" data-name="whale_drag.webp">复制引用</button>
-      </td>
-    </tr>
-    <tr>
-      <td class="name">whale_idle.png</td>
-      <td class="kind">图片</td>
-      <td class="size">44 KB</td>
-      <td class="ops">
-        <a class="btn" href="files/whale_idle.png" target="_blank" rel="noopener">打开</a>
-        <button class="btn copy" data-url="https://blogdocuments.pages.dev/files/whale_idle.png">复制直链</button>
-        <button class="btn copy-html" data-url="https://blogdocuments.pages.dev/files/whale_idle.png" data-name="whale_idle.png">复制引用</button>
-      </td>
-    </tr>
-    <tr>
-      <td class="name">whale_idle.webp</td>
-      <td class="kind">图片</td>
-      <td class="size">24 KB</td>
-      <td class="ops">
-        <a class="btn" href="files/whale_idle.webp" target="_blank" rel="noopener">打开</a>
-        <button class="btn copy" data-url="https://blogdocuments.pages.dev/files/whale_idle.webp">复制直链</button>
-        <button class="btn copy-html" data-url="https://blogdocuments.pages.dev/files/whale_idle.webp" data-name="whale_idle.webp">复制引用</button>
-      </td>
-    </tr>
-    <tr>
-      <td class="name">whale_work.png</td>
-      <td class="kind">图片</td>
-      <td class="size">47 KB</td>
-      <td class="ops">
-        <a class="btn" href="files/whale_work.png" target="_blank" rel="noopener">打开</a>
-        <button class="btn copy" data-url="https://blogdocuments.pages.dev/files/whale_work.png">复制直链</button>
-        <button class="btn copy-html" data-url="https://blogdocuments.pages.dev/files/whale_work.png" data-name="whale_work.png">复制引用</button>
-      </td>
-    </tr>
-    <tr>
-      <td class="name">whale_work.webp</td>
-      <td class="kind">图片</td>
-      <td class="size">26 KB</td>
-      <td class="ops">
-        <a class="btn" href="files/whale_work.webp" target="_blank" rel="noopener">打开</a>
-        <button class="btn copy" data-url="https://blogdocuments.pages.dev/files/whale_work.webp">复制直链</button>
-        <button class="btn copy-html" data-url="https://blogdocuments.pages.dev/files/whale_work.webp" data-name="whale_work.webp">复制引用</button>
-      </td>
-    </tr>
-    </tbody>
+    <tbody id="tb"></tbody>
   </table>
-  <div class="empty" id="empty" style="display:none">没有匹配的文件</div>
+  <div class="empty" id="empty" style="display: none">还没有文件</div>
 
   <footer>
-    · 「打开」用相对路径（GitHub Pages 上直接能看）<br>
-    · 「复制直链」复制的是 CDN 地址，粘到博客文章里最稳<br>
-    · 「复制引用」图片给 <code>&lt;img&gt;</code>、视频给 <code>&lt;video&gt;</code>、其余给下载链接<br>
-    · 新增文件后重跑 <code>build-index.ps1</code> 再上传
+    · <span class="badge repo">仓库</span> 是放在 GitHub 仓库里的老文件（要删得去 GitHub 删）<br>
+    · <span class="badge r2">上传</span> 是在这个页面传上去的，可以在这里删（需要密码）<br>
+    · 「直链」复制的是完整网址，可直接粘到博客文章里
   </footer>
 </div>
 <div id="toast"></div>
 
 <script>
 (function () {
-  var q = document.getElementById('q');
-  var tb = document.getElementById('tb');
-  var empty = document.getElementById('empty');
-  var toast = document.getElementById('toast');
+  var REPO = 'RexnhcKnd/BlogDocuments';
+  var BRANCH = 'main';
+  var SITE = location.origin;
+  var staticFiles = [], r2Files = [], notes = [];
+  var maxMB = 100;   // 真实值由 /api/list 下发（R2=100，KV=25），下面这行只是加载完成前的占位
+  var storeName = '…';
+  var needUploadPw = false;   // 也由 /api/list 下发：服务端配了 UPLOAD_PASSWORD 才需要
   var t;
 
-  function show(msg) {
+  var tb = document.getElementById('tb');
+  var pw = document.getElementById('pw');
+  var pwrow = document.getElementById('pwrow');
+  var pwremember = document.getElementById('pwremember');
+  var PW_KEY = 'filebox-upload-pw';
+
+  // 密码存在浏览器本地，免得每次上传都手输；不想存就把「记住」取消勾选
+  function loadPw() { try { pw.value = localStorage.getItem(PW_KEY) || ''; } catch (e) {} }
+  function savePw() {
+    try {
+      if (pwremember.checked) localStorage.setItem(PW_KEY, pw.value);
+      else localStorage.removeItem(PW_KEY);
+    } catch (e) {}
+  }
+
+  function setHint() {
+    var gate = needUploadPw ? '上传需要密码' : '上传已关闭（服务端没配 UPLOAD_PASSWORD）';
+    document.getElementById('hint').textContent =
+      '单个文件最大 ' + maxMB + 'MB · 存储：' + storeName + ' · ' + gate + ' · 上传完直链会自动复制到剪贴板';
+  }
+  var empty = document.getElementById('empty');
+  var drop = document.getElementById('drop');
+  var pick = document.getElementById('pick');
+  var bar = document.getElementById('bar');
+  var barIn = bar.querySelector('i');
+  var toast = document.getElementById('toast');
+
+  function say(msg) {
     toast.textContent = msg;
     toast.classList.add('on');
     clearTimeout(t);
-    t = setTimeout(function () { toast.classList.remove('on'); }, 1600);
+    t = setTimeout(function () { toast.classList.remove('on'); }, 2400);
+  }
+  function kindOf(f) {
+    if (f.type) return f.type.split(';')[0];
+    var ext = (f.name.split('.').pop() || '').toLowerCase();
+    if (['jpg','jpeg','png','gif','webp','avif','bmp','svg','ico'].indexOf(ext) >= 0) return '图片';
+    if (['mp4','webm','mov','m4v'].indexOf(ext) >= 0) return '视频';
+    if (['mp3','wav','ogg','m4a','flac'].indexOf(ext) >= 0) return '音频';
+    if (['zip','7z','rar','tar','gz'].indexOf(ext) >= 0) return '压缩包';
+    if (['pdf','doc','docx','xls','xlsx','ppt','pptx','md','txt'].indexOf(ext) >= 0) return '文档';
+    return '文件';
+  }
+  function human(b) {
+    if (b >= 1048576) return (b / 1048576).toFixed(2) + ' MB';
+    if (b >= 1024) return Math.round(b / 1024) + ' KB';
+    return (b || 0) + ' B';
+  }
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
   }
   function copy(text, msg) {
     if (navigator.clipboard && window.isSecureContext) {
-      navigator.clipboard.writeText(text).then(function(){ show(msg); }, function(){ fallback(text, msg); });
-    } else { fallback(text, msg); }
+      navigator.clipboard.writeText(text).then(function () { say(msg); }, function () { fb(text, msg); });
+    } else { fb(text, msg); }
   }
-  function fallback(text, msg) {
+  function fb(text, msg) {
     var ta = document.createElement('textarea');
     ta.value = text; ta.style.position = 'fixed'; ta.style.left = '-9999px';
     document.body.appendChild(ta); ta.select();
-    try { document.execCommand('copy'); show(msg); } catch (e) { show('复制失败，请手动选中'); }
+    try { document.execCommand('copy'); say(msg); } catch (e) { say('复制失败，请手动复制'); }
     document.body.removeChild(ta);
   }
-  function snippet(name, url) {
-    var ext = (name.split('.').pop() || '').toLowerCase();
-    if (['mp4','webm','mov','m4v'].indexOf(ext) >= 0) {
+  function snippet(f) {
+    var ext = (f.name.split('.').pop() || '').toLowerCase();
+    var url = SITE + f.url;
+    if (['mp4', 'webm', 'mov', 'm4v'].indexOf(ext) >= 0) {
       return '<video src="' + url + '" controls preload="metadata" style="max-width:100%"></video>';
     }
-    if (['jpg','jpeg','png','webp','gif','avif','bmp'].indexOf(ext) >= 0) {
-      return '<img src="' + url + '" alt="' + name + '" style="max-width:100%">';
+    if (['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif', 'bmp'].indexOf(ext) >= 0) {
+      return '<img src="' + url + '" alt="' + f.name + '" style="max-width:100%">';
     }
-    return '<a href="' + url + '" target="_blank" rel="noopener">' + name + '</a>';
+    return '<a href="' + url + '" target="_blank" rel="noopener">' + f.name + '</a>';
   }
+
+  function render() {
+    var all = staticFiles.concat(r2Files);
+    all.sort(function (a, b) { return a.name.localeCompare(b.name, 'zh'); });
+    tb.innerHTML = all.map(function (f) {
+      var isR2 = f.src === 'upload';
+      return '<tr>' +
+        '<td class="name"><a href="' + SITE + f.url + '" target="_blank" rel="noopener">' + esc(f.name) + '</a>' +
+          '<span class="badge ' + (isR2 ? 'r2' : 'repo') + '">' + (isR2 ? '上传' : '仓库') + '</span></td>' +
+        '<td class="kind">' + esc(kindOf(f)) + '</td>' +
+        '<td class="size">' + human(f.size) + '</td>' +
+        '<td class="size">' + (f.uploaded ? new Date(f.uploaded).toLocaleString('zh-CN') : '—') + '</td>' +
+        '<td class="ops">' +
+          '<a class="btn" href="' + SITE + f.download + '">' + (isR2 ? '下载' : '打开') + '</a>' +
+          '<button class="btn" data-copy="' + SITE + f.url + '">直链</button>' +
+          '<button class="btn" data-snippet="' + encodeURIComponent(JSON.stringify(f)) + '">引用</button>' +
+          (isR2 ? '<button class="btn del" data-del="' + f.key + '" data-name="' + esc(f.name) + '">删除</button>' : '') +
+        '</td></tr>';
+    }).join('');
+    empty.style.display = all.length ? 'none' : 'block';
+    filter();
+    document.getElementById('notice').textContent = notes.join(' ｜ ');
+  }
+
+  function filter() {
+    var kw = document.getElementById('q').value.trim().toLowerCase();
+    Array.prototype.forEach.call(tb.querySelectorAll('tr'), function (tr) {
+      var a = tr.querySelector('.name a');
+      tr.classList.toggle('hide', !!(a && a.textContent.toLowerCase().indexOf(kw) < 0));
+    });
+  }
+
+  function load() {
+    notes = [];
+    // 仓库里的文件：直接问 GitHub 要目录（公开仓库，不需要 token）
+    var p1 = fetch('https://api.github.com/repos/' + REPO + '/contents/files?ref=' + BRANCH)
+      .then(function (r) { if (!r.ok) throw r.status; return r.json(); })
+      .then(function (list) {
+        staticFiles = (list || []).filter(function (x) { return x.type === 'file'; }).map(function (x) {
+          return { name: x.name, size: x.size, src: 'repo', type: '',
+                   url: 'files/' + encodeURIComponent(x.name),
+                   download: 'files/' + encodeURIComponent(x.name) + '?dl=1' };
+        });
+      })
+      .catch(function (e) {
+        notes.push('仓库文件列表取不到（GitHub 接口限流或网络问题：' + e + '），刷新一下再试');
+        staticFiles = [];
+      });
+
+    // 上传的文件：问本站后端（R2）
+    var p2 = fetch('/api/list')
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (j && j.ok) {
+          r2Files = j.files || [];
+          if (j.storage) storeName = j.storage;
+          if (j.maxMB) maxMB = j.maxMB;
+          needUploadPw = !!j.needUploadPw;
+          pwrow.style.display = needUploadPw ? 'block' : 'none';
+          setHint();
+        }
+        else { notes.push('后端未就绪：' + ((j && j.error) || '未知错误')); r2Files = []; }
+      })
+      .catch(function () { notes.push('后端未就绪（/api/list 请求失败）'); r2Files = []; });
+
+    return Promise.all([p1, p2]).then(render);
+  }
+
+  function upload(files) {
+    var list = Array.prototype.slice.call(files);
+    if (!list.length) return;
+    if (needUploadPw && !pw.value) { say('请先填上传密码'); pw.focus(); return; }
+    savePw();
+    bar.style.display = 'block';
+    (function next() {
+      var file = list.shift();
+      if (!file) { bar.style.display = 'none'; barIn.style.width = '0'; load().then(function () { say('全部上传完成'); }); return; }
+      if (file.size > maxMB * 1048576) { say(file.name + ' 超过 ' + maxMB + 'MB，跳过'); return next(); }
+      var xhr = new XMLHttpRequest();
+      xhr.open('POST', '/api/upload?name=' + encodeURIComponent(file.name));
+      xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+      if (needUploadPw) xhr.setRequestHeader('X-Upload-Password', pw.value);
+      xhr.upload.onprogress = function (e) {
+        if (e.lengthComputable) barIn.style.width = Math.round(e.loaded / e.total * 100) + '%';
+      };
+      xhr.onload = function () {
+        var res = {};
+        try { res = JSON.parse(xhr.responseText); } catch (e) {}
+        if (xhr.status === 200 && res.ok) { copy(SITE + res.url, file.name + ' 上传成功，直链已复制'); }
+        else { say(file.name + ' 上传失败：' + (res.error || xhr.status)); }
+        next();
+      };
+      xhr.onerror = function () { say(file.name + ' 网络错误'); next(); };
+      xhr.send(file);
+    })();
+  }
+
+  function del(key, name) {
+    var pw = prompt('要删除「' + name + '」，请输入删除密码：');
+    if (pw === null) return;
+    fetch('/api/delete?key=' + encodeURIComponent(key) + '&password=' + encodeURIComponent(pw), { method: 'POST' })
+      .then(function (r) { return r.json().then(function (j) { return { s: r.status, j: j }; }); })
+      .then(function (x) {
+        if (x.j && x.j.ok) { say('已删除 ' + name); load(); }
+        else {
+          var msg = (x.j && x.j.error) || ('删除失败 ' + x.s);
+          if (x.j && typeof x.j.left === 'number' && x.j.left > 0) msg += '（还剩 ' + x.j.left + ' 次机会）';
+          say(msg);
+        }
+      })
+      .catch(function () { say('删除请求失败'); });
+  }
+
+  drop.addEventListener('click', function () { pick.click(); });
+  pick.addEventListener('change', function () { upload(pick.files); pick.value = ''; });
+  ['dragenter', 'dragover'].forEach(function (n) {
+    drop.addEventListener(n, function (e) { e.preventDefault(); drop.classList.add('over'); });
+  });
+  ['dragleave', 'drop'].forEach(function (n) {
+    drop.addEventListener(n, function (e) { e.preventDefault(); drop.classList.remove('over'); });
+  });
+  drop.addEventListener('drop', function (e) { upload(e.dataTransfer.files); });
+
+  document.getElementById('q').addEventListener('input', filter);
 
   document.addEventListener('click', function (e) {
     var el = e.target;
-    if (!el.classList || !el.classList.contains('btn')) return;
-    if (el.classList.contains('copy')) { copy(el.dataset.url, '已复制直链'); }
-    else if (el.classList.contains('copy-html')) { copy(snippet(el.dataset.name, el.dataset.url), '已复制引用代码'); }
+    if (!el.dataset) return;
+    if (el.dataset.copy) copy(el.dataset.copy, '直链已复制');
+    else if (el.dataset.snippet) copy(snippet(JSON.parse(decodeURIComponent(el.dataset.snippet))), '引用代码已复制');
+    else if (el.dataset.del) del(el.dataset.del, el.dataset.name);
   });
 
-  q.addEventListener('input', function () {
-    var kw = q.value.trim().toLowerCase();
-    var rows = tb.querySelectorAll('tr');
-    var shown = 0;
-    for (var i = 0; i < rows.length; i++) {
-      var hit = rows[i].querySelector('.name').textContent.toLowerCase().indexOf(kw) >= 0;
-      rows[i].classList.toggle('hide', !hit);
-      if (hit) shown++;
-    }
-    empty.style.display = shown ? 'none' : 'block';
-  });
+  loadPw();
+  setHint();   // 先按默认值显示，load() 拿到真实上限后会再刷一次
+  load();
 })();
 </script>
 </body>

@@ -14,10 +14,11 @@
  *   ③ KV 命名空间 —— 绑定变量名 FILES   （免费 1GB，单值 25MB，免绑卡但最小）
  *   优先级 R2 > GitHub > KV；想强行指定就设 STORE=r2 / gh / kv
  *
- * 必须在 Pages → Settings → Environment variables 里配一个：
- *   ADMIN_PASSWORD = 你的删除密码
- *   ⚠️ 密码故意不写在这个文件里——仓库是公开的，写进去等于公开密码；
- *      没配这个变量时删除功能是关闭的（有意的保护）。
+ * 必须在 Pages → Settings → Environment variables 里配：
+ *   UPLOAD_PASSWORD = 上传密码（不配 = 上传关闭，谁都不能传）
+ *   ADMIN_PASSWORD  = 删除密码（不配 = 删除关闭）
+ *   ⚠️ 两个密码故意都不写在这个文件里——仓库是公开的，写进去等于公开密码。
+ *      不想限制上传就别配 UPLOAD_PASSWORD，但那样上传功能是关的，不是放开的。
  */
 
 // 三个不一样的数，别混：
@@ -322,6 +323,29 @@ function ghStore(env) {
   };
 }
 
+/* 上传 / 删除共用的密码门禁：密码对了返回 { ok:true }，不对就返回 { res } 直接当响应发出去。
+ * 连错 RL_MAX_FAIL 次锁 RL_LOCK_MIN 分钟（按 IP 记），上传和删除各记一份，互不牵连。 */
+async function passwordGate(store, request, expected, submitted, tag, missingMsg) {
+  if (!expected) return { res: json({ ok: false, error: missingMsg }, 500) };
+  const lockKey = RL_PREFIX + tag + '-' + (await sha(clientIp(request))).slice(0, 20);
+  let state = { fails: 0, lockedUntil: 0 };
+  try { const t = await store.getText(lockKey); if (t) state = JSON.parse(t); } catch (e) {}
+  const now = Date.now();
+
+  if (state.lockedUntil && now < state.lockedUntil) {
+    return { res: json({ ok: false, error: '密码错误次数太多，请 ' + Math.ceil((state.lockedUntil - now) / 60000) + ' 分钟后再试' }, 429) };
+  }
+  if (submitted !== expected) {
+    state.fails = (state.fails || 0) + 1;
+    if (state.fails >= RL_MAX_FAIL) { state.lockedUntil = now + RL_LOCK_MIN * 60000; state.fails = 0; }
+    await store.putText(lockKey, JSON.stringify(state));
+    return { res: json({ ok: false, error: '密码不对', left: state.lockedUntil ? 0 : RL_MAX_FAIL - state.fails }, 403) };
+  }
+  // 只有之前失败过才写回状态，否则每次正常上传都要多一次读写
+  if (state.fails || state.lockedUntil) await store.putText(lockKey, JSON.stringify({ fails: 0, lockedUntil: 0 }));
+  return { ok: true };
+}
+
 /* ==================== 接口实现 ==================== */
 
 async function listFiles(env, store) {
@@ -339,10 +363,15 @@ async function listFiles(env, store) {
       download: '/api/file/' + f.key + '?dl=1'
     }))
     .sort((a, b) => new Date(b.uploaded || 0) - new Date(a.uploaded || 0));
-  return json({ ok: true, count: files.length, maxMB: maxMBFor(env, store), storage: STORE_LABEL[store.kind] || store.kind, files });
+  return json({ ok: true, count: files.length, maxMB: maxMBFor(env, store), needUploadPw: !!env.UPLOAD_PASSWORD, storage: STORE_LABEL[store.kind] || store.kind, files });
 }
 
 async function upload(request, env, store, url) {
+  // 上传密码走请求头（不放 URL，免得密码进日志/Referer）
+  const gate = await passwordGate(store, request, env.UPLOAD_PASSWORD, request.headers.get('x-upload-password') || '', 'up',
+    '上传已关闭：Pages → Settings → Environment variables 加一个 UPLOAD_PASSWORD 才会开启上传');
+  if (gate.res) return gate.res;
+
   const maxMB = maxMBFor(env, store);
   const maxBytes = maxMB * 1024 * 1024;
   const declared = num(request.headers.get('content-length'), 0);
@@ -387,31 +416,13 @@ async function serve(request, env, store, url, key) {
 
 async function remove(request, env, store, url) {
   const key = url.searchParams.get('key') || '';
-  const password = url.searchParams.get('password') || '';
   if (!key) return json({ ok: false, error: '缺少 key' }, 400);
 
-  const expected = env.ADMIN_PASSWORD;
-  if (!expected) {
-    return json({ ok: false, error: '还没设置删除密码：Pages → Settings → Environment variables 加一个 ADMIN_PASSWORD' }, 500);
-  }
-
-  const lockKey = RL_PREFIX + (await sha(clientIp(request))).slice(0, 20);
-  let state = { fails: 0, lockedUntil: 0 };
-  try { const t = await store.getText(lockKey); if (t) state = JSON.parse(t); } catch (e) {}
-  const now = Date.now();
-
-  if (state.lockedUntil && now < state.lockedUntil) {
-    return json({ ok: false, error: '密码错误次数太多，请 ' + Math.ceil((state.lockedUntil - now) / 60000) + ' 分钟后再试' }, 429);
-  }
-  if (password !== expected) {
-    state.fails = (state.fails || 0) + 1;
-    if (state.fails >= RL_MAX_FAIL) { state.lockedUntil = now + RL_LOCK_MIN * 60000; state.fails = 0; }
-    await store.putText(lockKey, JSON.stringify(state));
-    return json({ ok: false, error: '密码不对', left: state.lockedUntil ? 0 : RL_MAX_FAIL - state.fails }, 403);
-  }
+  const gate = await passwordGate(store, request, env.ADMIN_PASSWORD, url.searchParams.get('password') || '', 'del',
+    '还没设置删除密码：Pages → Settings → Environment variables 加一个 ADMIN_PASSWORD');
+  if (gate.res) return gate.res;
 
   await store.del(decodeURIComponent(key));
-  await store.putText(lockKey, JSON.stringify({ fails: 0, lockedUntil: 0 }));
   return json({ ok: true, deleted: key });
 }
 
