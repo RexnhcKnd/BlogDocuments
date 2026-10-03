@@ -1,119 +1,188 @@
-# 文件站：用 GitHub 仓库给博客当文件库（纯网页操作，不需要命令行）
+# filebox
 
-> 为什么不用 Cloudflare：实测你的网络 **`*.workers.dev` 不通**（TIMEOUT），CF 那套即使部署成功也访问不了，
-> 还得买域名 + R2 绑卡。而 **github.com 网页、github.io、testingcf.jsdelivr.net 全部可达**，所以走这条。
->
-> 又为什么不直接用公共文件床：实测 `catbox.moe` / `pixeldrain` / `tmpfiles` **连不上**，
-> `0x0.st` **上传功能无限期关闭**，`uguu.se`（3 小时）/`litterbox`（72 小时）**文件会过期**——
-> 没有一家能当博客的长期图床。
+一个跑在 **Cloudflare Pages Functions** 上的文件站：拖拽上传、文件列表、直链外链、下载、删除，
+**不需要服务器、不需要数据库、不需要本地命令行**。
 
-## 这个方案能给你什么
+```
+Cloudflare Pages（静态页面 index.html）
+      └── Pages Functions（functions/api/[[path]].js）—— 4 个接口
+                ├── ① GitHub Releases   免绑卡，总量与流量不限，单文件 ≤ 100MB  ← 推荐
+                ├── ② R2 存储桶          免费 10GB，单文件可到 5TB，开通需绑支付方式
+                └── ③ KV 命名空间        免费 1GB，单值 ≤ 25MB，免绑卡
+```
 
-| 你想要的 | 能不能做到 |
+三种存储**同一份代码都支持**，配了哪个就用哪个，切换不用改代码。
+
+---
+
+## 特性
+
+| | 说明 |
 |---|---|
-| 上传各种格式 | ✅ 任意格式，单文件 < 100MB（GitHub）/ < 20MB（jsDelivr 直链） |
-| 每个文件有链接 | ✅ `https://testingcf.jsdelivr.net/gh/用户名/BlogDocuments@main/files/文件名` |
-| 外部直接链接 | ✅ 图片 `<img>`、视频 `<video>` 直接引（已实测：16 个文件全部 200，尺寸与本地一致） |
-| 下载到本地 | ✅ 链接点开就是文件；目录页还有「下载」按钮 |
-| 每个人都能上传 | ⚠️ 默认只有你能传。想让朋友也能传 → 仓库 `Settings → Collaborators` 加他们（最多几个），他们用 GitHub 账号网页上传即可 |
-| 零成本 / 零部署 | ✅ 全程网页点几下，不装任何东西 |
+| 上传 | 拖拽或点选，支持多选、任意格式，实时进度条；上传完**自动把直链复制到剪贴板** |
+| 外链 | 图片/视频可直接内联引用（`<img>` / `<video>`），列表页的「引用」按钮直接生成代码 |
+| 下载 | 每个文件带「下载」按钮（`?dl=1` 强制 `Content-Disposition: attachment`） |
+| 删除 | 页面上直接删，需**删除密码**，带防爆破 |
+| 权限 | 上传需**上传密码**；两个密码都在服务端 Secret 里，代码和仓库中不含明文 |
+| 安全 | 危险类型强制下载 + `nosniff`、路径穿越清理、上传/删除双密码、按 IP 锁定 |
+| 界面 | 深色、响应式、零依赖（单个 HTML，无框架无 CDN） |
 
-## 操作步骤（全在网页上，照着点）
-
-### 1. 注册 GitHub
-https://github.com/signup → 用户名、邮箱、密码。（记下**用户名**，后面链接要用）
-
-### 2. 新建仓库
-右上角 `+` → **New repository** → 名字填 `BlogDocuments` → 选 **Public** → 点 **Create repository**
-（不要勾 Add README，避免和待会儿传的文件冲突）
-
-### 3. 网页拖拽上传
-进入这个新仓库 → 点 **Add file** → **Upload files** → 打开本机的
-`D:\deepseek harness\工作区\files-site\files\` 文件夹 → **把里面 16 个文件全选拖进网页** → 等进度条走完 → 点绿色 **Commit changes**
-
-> 以后加文件就重复这一步：仓库首页 → Add file → Upload files → 拖进去 → Commit。
-
-### 4. 拿直链
-格式（把 `用户名` 换成你的）：
+## 文件结构
 
 ```
-https://testingcf.jsdelivr.net/gh/用户名/BlogDocuments@main/files/bg_540p.mp4
+index.html                        整个前端（含样式和逻辑，零依赖）
+functions/api/[[path]].js         整个后端（存储适配 + 4 个接口）
 ```
 
-点开就能下载/预览。**注意别用 `raw.githubusercontent.com` 的地址**——实测那个域名在你这网络不通。
+就这两个文件。放进任意 Cloudflare Pages 项目即可。
 
-### 5. 可选：生成一个"文件列表页"
-本机跑一次（改了用户名之后）：
+## 部署
+
+### 1. 建一个 Pages 项目
+
+把这两个文件按同样结构放进一个 GitHub 仓库（`index.html` 在根目录，后端放 `functions/api/`），
+然后在 Cloudflare 控制台 **Workers & Pages → Create application → Pages → Connect to Git** 连上它。
+
+构建配置：
+
+| 字段 | 填什么 |
+|---|---|
+| Framework preset | **None** |
+| Build command | **留空** |
+| Build output directory | **`/`** |
+
+> `functions/` 目录会被自动识别为 Pages Functions，不需要额外配置。
+
+### 2. 选一种存储并配置
+
+#### 方案 ①：GitHub Releases（推荐，免绑卡）
+
+GitHub Releases 官方文档明确写着：**不限制 release 里二进制文件的总大小，也不限制分发带宽**。
+所以拿它当文件存储不要钱、不要卡，而且文件不在 git 历史里，不占仓库体积。
+
+1. 建一个**细粒度 token**：https://github.com/settings/personal-access-tokens/new
+   - **Repository access** → `Only select repositories` → 只勾目标仓库
+   - **Permissions → Repository permissions → Contents** → **`Read and write`**
+   - 其余权限全部保持 `No access`
+2. 在 Pages → **Settings → Environment variables** 加：
+
+   | 名称 | 值 | 类型 |
+   |---|---|---|
+   | `GITHUB_TOKEN` | 刚生成的 `github_pat_...` | **Secret** |
+   | `GITHUB_REPO` | `你的用户名/仓库名` | 变量 |
+
+3. 重新部署（见下面「改环境变量后必须重新部署」）
+
+上传的文件会以 **release asset** 的形式出现在该仓库的 Releases 里，
+标签名由 `GITHUB_TAG` 决定（默认 `uploads`，首次上传时自动创建）。
+
+#### 方案 ②：R2 存储桶
+
+控制台 **R2 → Enable R2 → Create bucket**，然后在
+**Pages → Settings → Functions → Bindings → Add → R2 bucket**，
+变量名填 **`BUCKET`**，指向你的桶。
+
+#### 方案 ③：KV 命名空间
+
+控制台 **Workers & Pages → KV → Create namespace**，然后在
+**Pages → Settings → Functions → Bindings → Add → KV namespace**，
+变量名填 **`FILES`**。
+
+> 优先级：**R2 > GitHub > KV**。想强制指定就设 `STORE` = `r2` / `gh` / `kv`。
+
+### 3. 设置两个密码
+
+**Pages → Settings → Environment variables**，两个都选 **Secret**、环境选 **Production**：
+
+| 名称 | 作用 | 不配的后果 |
+|---|---|---|
+| `UPLOAD_PASSWORD` | 上传前必须输入 | **上传功能关闭**（谁都传不了） |
+| `ADMIN_PASSWORD` | 删除前必须输入 | **删除功能关闭** |
+
+两个密码是独立的，锁定状态各记一份，上传被锁不影响删除。
+
+### 4. 改环境变量后必须重新部署
+
+Cloudflare Pages 修改环境变量**不会自动重新部署**，跑着的实例仍用旧的环境。
+改完必须去 **Deployments → 最新一条 → ⋯ → Retry deployment**，等状态变成 Success。
+
+---
+
+## 配置项
+
+| 变量 | 默认值 | 说明 |
+|---|---|---|
+| `UPLOAD_PASSWORD` | — | 上传密码；未设置 = 上传关闭 |
+| `ADMIN_PASSWORD` | — | 删除密码；未设置 = 删除关闭 |
+| `SITE_NAME` | `文件站` | 页面标题 |
+| `GITHUB_TOKEN` | — | 方案 ① 必需，细粒度 PAT |
+| `GITHUB_REPO` | — | 方案 ① 必需，`用户名/仓库名` |
+| `GITHUB_TAG` | `uploads` | Release 标签名 |
+| `GITHUB_BRANCH` | `main` | 用于列出仓库里 `files/` 文件夹的分支 |
+| `MAX_MB` | `100` | 单文件上限（MB），KV 模式自动夹到 25 |
+| `STORE` | 自动 | 强制指定存储：`r2` / `gh` / `kv` |
+
+## HTTP 接口
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| `GET` | `/api/list` | 文件列表 + 站点配置（上限、存储类型、是否需要密码） |
+| `POST` | `/api/upload?name=<文件名>` | 上传，请求体就是文件本身；密码走 `X-Upload-Password` 请求头 |
+| `GET` | `/api/file/<key>` | 下载/预览（危险类型强制下载）；`?dl=1` 强制下载 |
+| `POST` | `/api/delete?key=<key>&password=<密码>` | 删除 |
+
+上传密码放在请求头而不是 URL，避免密码进入访问日志和 Referer。
+
+## 安全设计
+
+| 措施 | 说明 |
+|---|---|
+| 危险类型强制下载 | `html/svg/js/exe/bat/php…` 一律 `Content-Disposition: attachment`，不会在站点域名下被当页面执行 |
+| `X-Content-Type-Options: nosniff` | 防止浏览器把文件猜成别的类型执行 |
+| 路径穿越防护 | 上传名只取最后一段并去掉控制字符（`../../../etc/passwd` → `passwd`） |
+| 单文件大小上限 | 按 `content-length` 预判 + **落盘后再量一次复核**，分块上传也绕不过 |
+| 双密码 | 上传、删除各一个；密码只存在于环境变量，仓库中无明文 |
+| 防爆破 | 每个密码、每个 IP 连错 5 次锁 15 分钟；两套锁定互不影响 |
+| 上传留痕 | 存储元数据里记录上传者 IP 与 UA |
+
+## 存储方案对比
+
+| | GitHub Releases | R2 | KV |
+|---|---|---|---|
+| 要绑卡 | 不用 | 可能要 | 不用 |
+| 总量 | **不限** | 10 GB | 1 GB |
+| 流量 | **不限** | 出口免费不限 | 读 10 万次/天 |
+| 单文件 | 100 MB¹ | 5 TB² | **25 MB** |
+| 单个容器上限 | 1000 个文件/Release | — | — |
+
+¹ 受 **Cloudflare 账号套餐的请求体上限**限制（免费/Pro 100MB、商业 200MB、企业最高 5GB），
+不是 GitHub 的限制（GitHub 单个 asset 可到 2GB）。突破它需要 R2 分片上传。
+² 需配合分片上传；R2 单次 PUT 上限 5GB。
+
+## 已知取舍
+
+代码中标注 `ponytail:` 的位置是**有意为之的简化**，各有明确上限与升级路径：
+
+- **文件列表最多取 1000 条**：R2 与 KV 都不翻页，GitHub 单 Release 本身也限制 1000 个 asset。
+  超出时换 `GITHUB_TAG`，或给适配层补 cursor 循环。
+- **GitHub 模式的密码锁定状态**存在一个下划线开头的隐藏 asset 里，
+  每次「输错密码」会产生几次 API 调用（正常上传不触发写回）。频率很低，可接受。
+- **GitHub 模式把 `request.body` 流式转给 GitHub**。若 GitHub 拒收 chunked 请求体，
+  需要改成先 `await request.arrayBuffer()` 再传（代价是单文件会占用 isolate 内存）。
+
+## 本地测试
 
 ```powershell
-cd "D:\deepseek harness\工作区\files-site"
-# 先把 build-index.ps1 第 10 行的 $GH_USER 改成你的用户名
-powershell -ExecutionPolicy Bypass -File .\build-index.ps1
+node _test/pagesfn3_test.mjs
 ```
 
-生成的 `index.html` 会带搜索框和每个文件的「复制直链」按钮。把它也拖到仓库根目录，然后
-仓库 **Settings → Pages** → Source 选 `main` + `/ (root)` → 保存，
-过一分钟访问 `https://用户名.github.io/BlogDocuments/` 就是那个列表页。
+用**内存版假 R2 / 假 KV / 假 GitHub API**（含 401、403、422、404 等真实行为）跑完整流程：
 
-### 6. 可选：让朋友也能上传
-仓库 **Settings → Collaborators → Add people** → 填对方的 GitHub 用户名。
-对方接受邀请后，用同样的「Add file → Upload files」就能传（**不需要**懂 git）。
+**R2 24 项、GitHub 26 项、KV 25 项，另加 GitHub 专属与 fail-closed 检查**，覆盖：
 
-## 已经帮你准备好的 16 个文件（在 `files/` 里，7.09MB）
+上传密码（空/错/正确/大小写/锁定/换 IP/不牵连删除）、下载内容与中文文件名还原、内联与强制下载、
+列表字段、危险类型强制下载、路径穿越清理、两种大小超限、KV 上限夹取、
+无密码时上传与删除关闭、GitHub 首次上传自动建 Release、asset 命名与 label 还原、
+状态文件不重名、空仓库首次列表、配置缺失时的提示。
 
-| 文件 | 用途 |
-|---|---|
-| `bg_540p.mp4`（1.28MB）/ `bg_720p.mp4` | 壁纸视频，**所以那个"视频当博客背景"现在能做了** |
-| `bg_static_2560.jpg` / `bg_article_2560.jpg` | 首页 / 文章页大图 2560×1440 |
-| `bg_extra1~3.jpg` | 轮播用的另外三张画面 |
-| `info_bg.jpg` | 侧边栏信息卡背景 |
-| `snowflake.png` / `avatar_200.png` | 雪花 / 头像 |
-| `whale_*.webp` / `whale_*.png` | 女仆装大肥鱼的三个状态（webp 小、png 备用） |
-
-## 博客里怎么用
-
-```html
-<!-- 图片 -->
-<img src="https://testingcf.jsdelivr.net/gh/用户名/BlogDocuments@main/files/bg_static_2560.jpg" alt="壁纸">
-
-<!-- 视频 -->
-<video src="https://testingcf.jsdelivr.net/gh/用户名/BlogDocuments@main/files/bg_540p.mp4" controls muted></video>
-
-<!-- 下载 -->
-<a href="https://testingcf.jsdelivr.net/gh/用户名/BlogDocuments@main/files/xxx.zip" target="_blank">下载 xxx.zip</a>
-```
-
-主题配置里当背景（`window.cnblogsConfig`）也一样，把相册地址换成上面的直链即可。
-
-## 为什么域名是 testingcf.jsdelivr.net 而不是 cdn.jsdelivr.net
-
-实测：`cdn.jsdelivr.net` 和 `fastly.jsdelivr.net` 在你这网络会 **301 跳到 `raw.githubusercontent.com`**，
-而那个域名**不通**（ECONNRESET）——也就是说用默认域名的话，图片视频全都加载不出来。
-换成 `testingcf.jsdelivr.net` 或 `testingcf.jsdelivr.net` 就正常（16/16 实测通过）。
-**换节点只改域名，路径完全不变。**
-
-## 节点可靠性实测（各 5 次）
-
-| 节点 | 成功率 | 速度 | 说明 |
-|---|---|---|---|
-| `testingcf.jsdelivr.net` | **5/5** | 149–1507ms | **默认用这个** |
-| `cdn.jsdelivr.net` | 5/5 | 66–103ms（最快） | 但文件未被 CDN 缓存时会 301 跳到**被墙的** raw.githubusercontent.com |
-| `gcore.jsdelivr.net` | 4/5 | 100–884ms | 偶发 ECONNRESET |
-
-三者都支持 Range 请求（视频能拖动播放，实测 206 + content-range 正确）。
-**换节点只改 `build-index.ps1` 里 `$CDN_HOST` 那一行，重跑一次即可，路径不变。**
-
-## 四个要记住的限制
-
-1. **单文件 ≤ 20MB**（jsDelivr 的限制）。更大的只能找别的托管。
-2. **jsDelivr 会长期缓存**：同一路径换了文件内容，可能还发旧的 → **改内容就换文件名**（`bg_v2.mp4`）。
-3. **别用 Git LFS**：jsDelivr 不认 LFS 指针。
-4. **中文文件名能用**，但建议用英文/拼音，链接更干净、也避免个别环境编码问题。
-
-## 如果哪天还想要"陌生人也能上传"
-
-那就得上 Cloudflare 那套（`filebox/` 里代码已经写好、31 项测试全绿）。但前提是先解决：
-- `workers.dev` 在你这网络不通 → 需要**买一个域名**（~¥50/年）绑到 CF
-- R2 开通可能要求**绑支付方式**
-
-到那时再弄，我把每一步写成保姆级操作，你卡在哪一步截图问我。
+改完代码先跑这个，**全绿再部署**。

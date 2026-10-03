@@ -9,9 +9,10 @@
  *   POST /api/delete?key=&password=   删除（密码对了才删，连错会被锁）
  *
  * 存储：**同一个文件支持三种，配了哪个就用哪个**（不用改代码就能换）
- *   ① R2 桶      —— 绑定变量名 BUCKET   （免费 10GB，单文件可到 5TB，但开通要绑支付方式）
- *   ② GitHub     —— Secret GITHUB_TOKEN  （**免绑卡**，总量和流量都不限，单文件受 CF 的 100MB 限制）
- *   ③ KV 命名空间 —— 绑定变量名 FILES   （免费 1GB，单值 25MB，免绑卡但最小）
+ *   ① GitHub Releases —— Secret GITHUB_TOKEN + 变量 GITHUB_REPO
+ *                        （**免绑卡**，总量和流量都不限，单文件受 CF 的 100MB 限制）★ 推荐
+ *   ② R2 桶           —— 绑定变量名 BUCKET （免费 10GB，单文件可到 5TB，但开通要绑支付方式）
+ *   ③ KV 命名空间      —— 绑定变量名 FILES  （免费 1GB，单值 25MB，免绑卡但最小）
  *   优先级 R2 > GitHub > KV；想强行指定就设 STORE=r2 / gh / kv
  *
  * 必须在 Pages → Settings → Environment variables 里配：
@@ -19,6 +20,13 @@
  *   ADMIN_PASSWORD  = 删除密码（不配 = 删除关闭）
  *   ⚠️ 两个密码故意都不写在这个文件里——仓库是公开的，写进去等于公开密码。
  *      不想限制上传就别配 UPLOAD_PASSWORD，但那样上传功能是关的，不是放开的。
+ *
+ * 可选变量：
+ *   SITE_NAME     页面标题，默认「文件站」
+ *   GITHUB_BRANCH 仓库分支名（用于列出仓库里的 files/ 文件夹），默认 main
+ *   GITHUB_TAG    Release 标签名，默认 uploads；一个 Release 满 1000 个文件就换一个
+ *   MAX_MB        单文件上限，默认 100（免费套餐的请求体上限）
+ *   STORE         强制指定存储：r2 / gh / kv
  */
 
 // 三个不一样的数，别混：
@@ -54,7 +62,10 @@ export async function onRequest(context) {
 
   const store = makeStore(env);
   if (!store) {
-    return json({ ok: false, error: '还没配存储：请在 Pages → Settings → Functions 里绑定 R2（变量名 BUCKET）或 KV（变量名 FILES），或者加一个 GITHUB_TOKEN' }, 500);
+    const hint = env.GITHUB_TOKEN && !env.GITHUB_REPO
+      ? '配了 GITHUB_TOKEN 但没配 GITHUB_REPO：再加上 GITHUB_REPO = 你的用户名/仓库名'
+      : '还没配存储：加一个 GITHUB_TOKEN + GITHUB_REPO（GitHub Releases），或绑定 R2（变量名 BUCKET）/ KV（变量名 FILES）';
+    return json({ ok: false, error: hint }, 500);
   }
 
   try {
@@ -74,10 +85,10 @@ function makeStore(env) {
   // STORE 可以强制指定（r2 / gh / kv）；不指定就按能力从强到弱挑
   const want = (env.STORE || '').toLowerCase();
   if (want === 'r2' && env.BUCKET) return r2Store(env.BUCKET);
-  if (want === 'gh' && env.GITHUB_TOKEN) return ghStore(env);
+  if (want === 'gh' && env.GITHUB_TOKEN && env.GITHUB_REPO) return ghStore(env);
   if (want === 'kv' && env.FILES) return kvStore(env.FILES);
   if (env.BUCKET) return r2Store(env.BUCKET);
-  if (env.GITHUB_TOKEN) return ghStore(env);
+  if (env.GITHUB_TOKEN && env.GITHUB_REPO) return ghStore(env);
   if (env.FILES) return kvStore(env.FILES);
   return null;
 }
@@ -182,13 +193,13 @@ function kvStore(kv) {
  *   · 文件不在 git 历史里 → 不占仓库体积，别人 clone 也不会拉下来
  *   · 单文件上限受 **CF 请求体 100MB** 限制（这是 CF 的，不是 GitHub 的）
  * 需要 env：GITHUB_TOKEN（细粒度 PAT，只要 Contents: Read and write）
- * 可选：GITHUB_REPO（默认 RexnhcKnd/BlogDocuments）、GITHUB_TAG（默认 uploads）
+ * 必需 env：GITHUB_TOKEN + GITHUB_REPO；可选：GITHUB_TAG（默认 uploads）、GITHUB_BRANCH（默认 main）
  */
 const GH_TAG_DEFAULT = 'uploads';
 const GH_STATE_PREFIX = '_rl_';       // GitHub 的 asset 名不能带 "/"，所以把 _rl/xxx 映射成 _rl_xxx
 
 function ghStore(env) {
-  const repo = env.GITHUB_REPO || 'RexnhcKnd/BlogDocuments';
+  const repo = env.GITHUB_REPO;
   const tag = env.GITHUB_TAG || GH_TAG_DEFAULT;
   const token = env.GITHUB_TOKEN;
   const apiBase = 'https://api.github.com/repos/' + repo;
@@ -198,7 +209,7 @@ function ghStore(env) {
     Authorization: 'Bearer ' + token,
     Accept: 'application/vnd.github+json',
     'X-GitHub-Api-Version': '2022-11-28',
-    'User-Agent': 'blogdocuments-filebox'
+    'User-Agent': 'cf-pages-filebox'
   };
   const assetName = (key) => String(key).replace(/\//g, '_');
   let relCache = null;      // release 对象（很少变，缓存在 isolate 里）
@@ -363,7 +374,15 @@ async function listFiles(env, store) {
       download: '/api/file/' + f.key + '?dl=1'
     }))
     .sort((a, b) => new Date(b.uploaded || 0) - new Date(a.uploaded || 0));
-  return json({ ok: true, count: files.length, maxMB: maxMBFor(env, store), needUploadPw: !!env.UPLOAD_PASSWORD, storage: STORE_LABEL[store.kind] || store.kind, files });
+  return json({
+    ok: true, count: files.length, maxMB: maxMBFor(env, store),
+    site: env.SITE_NAME || '文件站',
+    storage: STORE_LABEL[store.kind] || store.kind,
+    needUploadPw: !!env.UPLOAD_PASSWORD,
+    repo: env.GITHUB_REPO || '',      // 前端拿它去列仓库里的 files/ 文件夹
+    branch: env.GITHUB_BRANCH || 'main',
+    files
+  });
 }
 
 async function upload(request, env, store, url) {
