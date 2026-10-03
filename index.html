@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>文件站</title>
+<title>RexnhcKnd 的文件站</title>
 <meta name="theme-color" content="#17181a">
 <style>
   :root { color-scheme: dark; }
@@ -55,7 +55,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1 id="title">文件站</h1>
+  <h1 id="title">RexnhcKnd 的文件站</h1>
   <div class="sub">直接在这个页面里上传 / 下载 · 每个文件都有直链，可外链</div>
 
   <div id="drop">
@@ -93,8 +93,8 @@
 
 <script>
 (function () {
-  var REPO = '';          // 由后端 /api/list 下发（GITHUB_REPO），没配就不列仓库文件
-  var BRANCH = 'main';    // 同上（GITHUB_BRANCH）
+  var REPO = 'RexnhcKnd/BlogDocuments';   // 后端会下发同名值；留着当兜底，后端挂了也能列仓库文件
+  var BRANCH = 'main';
   var SITE = location.origin;
   var staticFiles = [], r2Files = [], notes = [];
   var maxMB = 100;   // 真实值由 /api/list 下发（R2=100，KV=25），下面这行只是加载完成前的占位
@@ -213,8 +213,10 @@
   function load() {
     notes = [];
     staticFiles = [];
-    // 先问后端要配置（站点名 / 存储类型 / 上限 / 是否需要密码 / 仓库名），再按配置去列仓库文件
-    return fetch('/api/list')
+    // 两件事并行：① 列仓库里的 files/（用 REPO 兜底值，不依赖后端）
+    //             ② 向后端要配置和已上传的文件
+    var p1 = loadRepoFiles();
+    var p2 = fetch('/api/list')
       .then(function (r) { return r.json(); })
       .then(function (j) {
         if (!j || !j.ok) {
@@ -226,15 +228,17 @@
         if (j.site) document.getElementById('title').textContent = j.site;
         if (j.storage) storeName = j.storage;
         if (j.maxMB) maxMB = j.maxMB;
-        REPO = j.repo || '';
-        BRANCH = j.branch || 'main';
+        if (j.branch) BRANCH = j.branch;
         needUploadPw = !!j.needUploadPw;
         pwrow.style.display = needUploadPw ? 'block' : 'none';
         setHint();
-        return REPO ? loadRepoFiles() : null;
+        // 后端配了别的仓库才重列一次；和兜底值一样就不重复请求
+        if (j.repo && j.repo !== REPO) { REPO = j.repo; return loadRepoFiles(); }
+        return null;
       })
-      .catch(function () { notes.push('后端未就绪（/api/list 请求失败）'); r2Files = []; })
-      .then(render);
+      .catch(function () { notes.push('后端未就绪（/api/list 请求失败）'); r2Files = []; });
+
+    return Promise.all([p1, p2]).then(render);
   }
 
   // 列仓库里的 files/ 文件夹（公开仓库，不需要 token）。失败只提示，不影响上传/下载。

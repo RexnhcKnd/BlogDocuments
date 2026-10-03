@@ -9,7 +9,7 @@
  *   POST /api/delete?key=&password=   删除（密码对了才删，连错会被锁）
  *
  * 存储：**同一个文件支持三种，配了哪个就用哪个**（不用改代码就能换）
- *   ① GitHub Releases —— Secret GITHUB_TOKEN + 变量 GITHUB_REPO
+ *   ① GitHub Releases —— Secret GITHUB_TOKEN 就够了（仓库名见下面的常量）
  *                        （**免绑卡**，总量和流量都不限，单文件受 CF 的 100MB 限制）★ 推荐
  *   ② R2 桶           —— 绑定变量名 BUCKET （免费 10GB，单文件可到 5TB，但开通要绑支付方式）
  *   ③ KV 命名空间      —— 绑定变量名 FILES  （免费 1GB，单值 25MB，免绑卡但最小）
@@ -21,13 +21,13 @@
  *   ⚠️ 两个密码故意都不写在这个文件里——仓库是公开的，写进去等于公开密码。
  *      不想限制上传就别配 UPLOAD_PASSWORD，但那样上传功能是关的，不是放开的。
  *
- * 可选变量：
- *   SITE_NAME     页面标题，默认「文件站」
- *   GITHUB_BRANCH 仓库分支名（用于列出仓库里的 files/ 文件夹），默认 main
- *   GITHUB_TAG    Release 标签名，默认 uploads；一个 Release 满 1000 个文件就换一个
- *   MAX_MB        单文件上限，默认 100（免费套餐的请求体上限）
- *   STORE         强制指定存储：r2 / gh / kv
+ * 站点名和仓库名写在下面两个常量里（改这两行就行，不需要配变量）。
+ * 也可以用环境变量覆盖：SITE_NAME / GITHUB_REPO。
  */
+
+// ============ 站点信息：改这两行就能换名字/换仓库，不需要配环境变量 ============
+const SITE_NAME_DEFAULT = 'RexnhcKnd 的文件站';
+const GITHUB_REPO_DEFAULT = 'RexnhcKnd/BlogDocuments';
 
 // 三个不一样的数，别混：
 //   · Function 能收到的请求体上限 = 100MB（CF 免费套餐，按账号套餐算，超了由 CF 边缘回 413）
@@ -62,10 +62,7 @@ export async function onRequest(context) {
 
   const store = makeStore(env);
   if (!store) {
-    const hint = env.GITHUB_TOKEN && !env.GITHUB_REPO
-      ? '配了 GITHUB_TOKEN 但没配 GITHUB_REPO：再加上 GITHUB_REPO = 你的用户名/仓库名'
-      : '还没配存储：加一个 GITHUB_TOKEN + GITHUB_REPO（GitHub Releases），或绑定 R2（变量名 BUCKET）/ KV（变量名 FILES）';
-    return json({ ok: false, error: hint }, 500);
+    return json({ ok: false, error: '还没配存储：加一个 GITHUB_TOKEN（GitHub Releases，免绑卡），或绑定 R2（变量名 BUCKET）/ KV（变量名 FILES）' }, 500);
   }
 
   try {
@@ -85,10 +82,10 @@ function makeStore(env) {
   // STORE 可以强制指定（r2 / gh / kv）；不指定就按能力从强到弱挑
   const want = (env.STORE || '').toLowerCase();
   if (want === 'r2' && env.BUCKET) return r2Store(env.BUCKET);
-  if (want === 'gh' && env.GITHUB_TOKEN && env.GITHUB_REPO) return ghStore(env);
+  if (want === 'gh' && env.GITHUB_TOKEN) return ghStore(env);
   if (want === 'kv' && env.FILES) return kvStore(env.FILES);
   if (env.BUCKET) return r2Store(env.BUCKET);
-  if (env.GITHUB_TOKEN && env.GITHUB_REPO) return ghStore(env);
+  if (env.GITHUB_TOKEN) return ghStore(env);
   if (env.FILES) return kvStore(env.FILES);
   return null;
 }
@@ -199,7 +196,7 @@ const GH_TAG_DEFAULT = 'uploads';
 const GH_STATE_PREFIX = '_rl_';       // GitHub 的 asset 名不能带 "/"，所以把 _rl/xxx 映射成 _rl_xxx
 
 function ghStore(env) {
-  const repo = env.GITHUB_REPO;
+  const repo = env.GITHUB_REPO || GITHUB_REPO_DEFAULT;
   const tag = env.GITHUB_TAG || GH_TAG_DEFAULT;
   const token = env.GITHUB_TOKEN;
   const apiBase = 'https://api.github.com/repos/' + repo;
@@ -376,10 +373,10 @@ async function listFiles(env, store) {
     .sort((a, b) => new Date(b.uploaded || 0) - new Date(a.uploaded || 0));
   return json({
     ok: true, count: files.length, maxMB: maxMBFor(env, store),
-    site: env.SITE_NAME || '文件站',
+    site: env.SITE_NAME || SITE_NAME_DEFAULT,
     storage: STORE_LABEL[store.kind] || store.kind,
     needUploadPw: !!env.UPLOAD_PASSWORD,
-    repo: env.GITHUB_REPO || '',      // 前端拿它去列仓库里的 files/ 文件夹
+    repo: env.GITHUB_REPO || GITHUB_REPO_DEFAULT,   // 前端拿它去列仓库里的 files/ 文件夹
     branch: env.GITHUB_BRANCH || 'main',
     files
   });
